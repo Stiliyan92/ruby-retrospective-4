@@ -52,9 +52,9 @@ class TypeFilter < Filter
 
   def initialize(number_type)
     case number_type
-    when :integer then super() { |n| n.is_a? Integer }
-    when :real    then super() { |n| n.is_a? Float or n.is_a? Rational }
-    when :complex then super() { |n| n.is_a? Complex }
+      when :integer then super() { |n| n.is_a? Integer }
+      when :real    then super() { |n| n.is_a? Float or n.is_a? Rational }
+      when :complex then super() { |n| n.is_a? Complex }
     end
   end
 
@@ -64,10 +64,10 @@ class SignFilter < Filter
 
   def initialize(sign)
     case sign
-    when :positive     then super() { |number| number > 0 }
-    when :negative     then super() { |number| number < 0 }
-    when :non_positive then super() { |number| number <= 0 }
-    when :non_negative then super() { |number| number >= 0 }
+      when :positive     then super() { |number| number > 0 }
+      when :negative     then super() { |number| number < 0 }
+      when :non_positive then super() { |number| number <= 0 }
+      when :non_negative then super() { |number| number >= 0 }
     end
   end
 
