@@ -1,14 +1,12 @@
 class NumberSet
   include Enumerable
 
-  def initialize
-    @number_set = []
+  def initialize(initial_numbers = [])
+    @number_set = initial_numbers
   end
 
-  def <<( number )
-    unless @number_set.include? number
-      @number_set << number
-    end
+  def <<(number)
+    @number_set << number unless @number_set.include? number
   end
 
   def each (&block)
@@ -23,70 +21,54 @@ class NumberSet
     @number_set.empty?
   end
 
-  def []( filter )
-    p filter.filter_set_of_numbers @number_set
+  def [](filter)
+    NumberSet.new @number_set.select {|number| filter.matches? number}
   end
 end
 
-class SignFilter
-  def initialize number_sign_type
-    @sign = number_sign_type
-  end
-
-  def filter_set_of_numbers numbers
-    case @sign.to_s
-      when "negative"
-        numbers.select { |x| x.real < 0.0 }
-      when "positive"
-        numbers.select { |x| x.real > 0.0 }
-      when "non_positive"
-        numbers.select { |x| x.real <= 0.0 }
-      else
-        numbers.select { |x| x.real >= 0.0 }
-    end
-  end
-end
-
-class TypeFilter
-  def initialize number_type
-    @number_type = number_type
-  end
-
-  def filter_set_of_numbers numbers
-    case @number_type.to_s
-      when "complex"
-        numbers.select { |x| x.class.to_s == "Complex" }
-      when "real", "rational"
-        real_and_rational = numbers.select { |x| x.class.to_s == "Float" }
-        real_and_rational + numbers.select { |x| x.class.to_s == "Rational" }
-      when "integer"
-        numbers.select { |x| x.class.to_s == "Fixnum" }
-    end
-  end
-end
 
 class Filter
-  def initialize &block
+
+  def initialize(&block)
     @filter = block
   end
 
-  def filter_set_of_numbers numbers
-    numbers.select { |x| @filter.call x.real.round }
+  def matches?(number)
+    @filter.call number
   end
+
+  def &(other_filter)
+    Filter.new { |number| matches? number and other_filter.matches? number }
+  end
+
+  def |(other_filter)
+    Filter.new { |number| matches? number or other_filter.matches? number }
+  end
+
 end
 
-numbers = NumberSet.new
-numbers << 2.0
-numbers << 4 + 0i
-numbers << -3
-numbers << Rational(14, 3)
-numbers << Rational(-23, 2)
-numbers << -4.0
-numbers << 2
-numbers << -1 + 3i
-numbers << 0.0
-p numbers
 
-numbers[SignFilter.new(:non_negative)]
-numbers[Filter.new { |number| number.even? }]
-numbers[TypeFilter.new(:complex)]
+class TypeFilter < Filter
+
+  def initialize(number_type)
+    case number_type
+    when :integer then super() { |n| n.is_a? Integer }
+    when :real    then super() { |n| n.is_a? Float or n.is_a? Rational }
+    when :complex then super() { |n| n.is_a? Complex }
+    end
+  end
+
+end
+
+class SignFilter < Filter
+
+  def initialize(sign)
+    case sign
+    when :positive     then super() { |number| number > 0 }
+    when :negative     then super() { |number| number < 0 }
+    when :non_positive then super() { |number| number <= 0 }
+    when :non_negative then super() { |number| number >= 0 }
+    end
+  end
+
+end
