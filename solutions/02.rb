@@ -11,8 +11,8 @@ class NumberSet
     end
   end
 
-  def each
-    @number_set.each { |x| yield x }
+  def each (&block)
+    @number_set.each &block
   end
 
   def size
@@ -77,13 +77,13 @@ end
 
 numbers = NumberSet.new
 numbers << 2.0
-numbers << 4+0i
+numbers << 4 + 0i
 numbers << -3
 numbers << Rational(14, 3)
 numbers << Rational(-23, 2)
 numbers << -4.0
 numbers << 2
-numbers << -1+3i
+numbers << -1 + 3i
 numbers << 0.0
 p numbers
 
