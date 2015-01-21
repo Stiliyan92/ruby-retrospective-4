@@ -1,89 +1,152 @@
 module UI
+  class Component
+    attr_writer :style
 
-  def vertical(border: nil, style: nil, &block)
-    vertical_instance = Vertical.new(border, style)
-    @string = @string + vertical_instance.instance_eval(&block)
-  end
+    def initialize(parent)
+      @parent = parent
+      @style = -> text { text }
+    end
 
-  def horizontal(border: nil, style: nil, &block)
-    horizontal_instance = Horizontal.new(border, style)
-    @string = @string + horizontal_instance.instance_eval(&block)
-    @string = add_border(@string, border)
-  end
-
-  def apply_style(text_string, style)
-    if style == :upcase
-      return text_string.upcase
-    elsif style == :downcase
-      return text_string.downcase
-    else text_string
+    def stylize(text)
+      text = @parent.stylize(text) if @parent
+      @style.call text
     end
   end
 
-  def add_border(text_string, border)
-    text_string = border.to_s + text_string + border.to_s
+  class Label < Component
+
+    def initialize(parent, text)
+      super(parent)
+      @text = text
+    end
+
+    def width
+      @text.size
+    end
+
+    def height
+      1
+    end
+
+    def row_to_string(row)
+      stylize @text
+    end
   end
-  class TextScreen
-    extend UI
+
+  class BorderDecorator
+
+    def initialize(component, border)
+      @component = component
+      @border = border
+    end
+
+    def width
+      @component.width + 2 * @border.length
+    end
+
+    def height
+      @component.height
+    end
+
+    def stylize(text)
+      @component.stylize text
+    end
+
+    def row_to_string(row)
+      component_string = @component.row_to_string(row)
+      "#{@border}#{component_string.ljust(@component.width)}#{@border}"
+    end
+  end
+
+  class Container < Component
+
+    attr_reader :components
+
+    def initialize(parent = nil, &block)
+      super(parent)
+      @components = []
+      instance_eval(&block)
+    end
+
+    def vertical(border: nil, style: nil, &block)
+      add decorate(VerticalGroup.new(self, &block), border, style)
+    end
+
+    def horizontal(border: nil, style: nil, &block)
+      add decorate(HorizontalGroup.new(self, &block), border, style)
+    end
+
+    def label(text:, border: nil, style: nil)
+      add decorate(Label.new(self, text), border, style)
+    end
+
+    private
+
+    def add(component)
+      @components << component
+    end
+
+    def decorate(component, border, style)
+      component.style = :downcase.to_proc if style == :downcase
+      component.style = :upcase.to_proc if style == :upcase
+      component = BorderDecorator.new(component, border) if border
+      component
+    end
+
+  end
+
+  class VerticalGroup < Container
+
+    def width
+      @components.map(&:width).max
+    end
+
+    def height
+      @components.map(&:height).reduce(:+)
+    end
+
+    def row_to_string(row)
+      components_reaches = @components.map.with_index do |component, index|
+        [component, @components.first(index + 1).map(&:height).reduce(:+)]
+      end.select { |_, component_reach| row < component_reach }
+      component, component_reach = components_reaches.first
+      component.row_to_string(row - component_reach + component.height)
+    end
+  end
+
+  class HorizontalGroup < Container
+
+    def width
+      @components.map(&:width).reduce(:+)
+    end
+
+    def height
+      @components.map(&:height).max
+    end
+
+    def row_to_string(row)
+      @components.map { |component| component_to_s component, row }.join
+    end
+
+    private
+
+    def component_to_s(component, row)
+      if component.height > row
+        component.row_to_string row
+      else
+        " " * component.width
+      end
+    end
+  end
+
+  class TextScreen < HorizontalGroup
 
     def self.draw(&block)
-      @string = ""
-      self.class_eval(&block)
+      new(&block)
     end
 
-    def self.label(text:, border: nil, style: nil)
-      text = apply_style(text, style)
-      text = add_border(text, border)
-      @string = @string + text
-    end
-  end
-
-  class Vertical
-    include UI
-    attr_accessor :border, :style, :longest_text
-    def initialize(border, style)
-      @border = border
-      @style = style
-      @string = ""
-      @longest_text = 0
-    end
-    def label(text:, border: self.border, style: self.style)
-      if (text.size > @longest_text)
-        @longest_text = text.size
-      end
-      text = apply_style(text, style)
-      text = add_border(text, border)
-      @string = @string + text + "\n"
-    end
-
-    def horizontal(border: nil, style: nil, &block)
-      horizon = UI::Horizontal.new(border, style)
-      if @string == ""
-        then @string = horizon.instance_eval(&block)
-      else
-        @string = @string + "\n" + horizon.instance_eval(&block)
-      end
-    end
-  end
-
-  class Horizontal
-    include UI
-    attr_accessor :border, :style
-    def initialize(border, style)
-      @border = border
-      @style = style
-      @string = ""
-    end
-
-    def horizontal(border: nil, style: nil, &block)
-    horizontal_instance = Horizontal.new(border, style)
-    @string = @string + horizontal_instance.instance_eval(&block)
-    end
-
-    def label(text:, border: self.border, style: self.style)
-      text = apply_style(text, style)
-      text = add_border(text, border)
-      @string = @string + text
+    def to_s
+      (0...height).map { |row| "#{row_to_string(row)}\n" }.join
     end
   end
 end
